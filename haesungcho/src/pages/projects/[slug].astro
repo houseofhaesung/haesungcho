@@ -1,0 +1,318 @@
+---
+import Base from '../../layouts/Base.astro';
+import Footer from '../../components/Footer.astro';
+import Media from '../../components/Media.astro';
+import { projects, type Project, type Body } from '../../data/projects';
+
+export function getStaticPaths() {
+  return projects.map((p) => ({ params: { slug: p.slug }, props: { p } }));
+}
+const { p } = Astro.props as { p: Project };
+
+// 텍스트 서식: \n → 줄바꿈, **굵게**
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const fmt = (s: string) => esc(s).replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />');
+const isHeading = (b: Body): b is { h: string } => typeof b !== 'string';
+
+// 배경이 어두우면 글자를 밝게
+const isDark = (bg?: string) => {
+  if (!bg || !bg.startsWith('#')) return false;
+  const h = bg.length === 4 ? bg.slice(1).split('').map((c) => c + c).join('') : bg.slice(1);
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 140;
+};
+const thumb = `/images/works/${p.slug}.jpg`;
+const moreExternal = p.more?.href.startsWith('http');
+---
+<Base title={`${p.title} — House of Haesung`} description={p.description.replace('\n', ' ')}>
+  <article class="project">
+    <div class="spacer" aria-hidden="true"></div>
+
+    <!-- 정보 줄: 데스크톱은 맨 위, 모바일은 맨 아래 -->
+    <section class="info">
+      <span class="lbl l-proj">Project</span>
+      <span class="lbl l-cat">Category</span>
+      <span class="lbl l-desc">Description</span>
+      <span class="lbl l-date">Date</span>
+      <h1 class="v-proj">{p.title}</h1>
+      <p class="v-cat">{p.category}</p>
+      <p class="v-desc" set:html={fmt(p.description)} />
+      <p class="v-date script">{p.year}</p>
+    </section>
+
+    <!-- 소개: 데스크톱은 정보 줄 아래, 모바일은 본문 이미지들 다음 -->
+    <section class="intro">
+      <div class="intro-text">
+        {p.intro.map((b) => (isHeading(b) ? <h3>{b.h}</h3> : <p set:html={fmt(b)} />))}
+        {p.more && (
+          <a class="more" href={p.more.href} target={moreExternal ? '_blank' : undefined} rel={moreExternal ? 'noopener' : undefined}>
+            {p.more.label ?? 'SEE MORE'}
+          </a>
+        )}
+      </div>
+      <div class="intro-hero" style={`--r:${p.hero.ratio}`}>
+        {p.heroVideo ? (
+          <Media src={p.heroVideo.src} ratio={p.hero.ratio} poster={p.heroVideo.poster} video />
+        ) : p.heroYoutube ? (
+          <div class="hero-yt">
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${p.heroYoutube}?autoplay=1&mute=1&loop=1&playlist=${p.heroYoutube}&controls=0&rel=0&playsinline=1&modestbranding=1`}
+              title={`${p.title} motion poster`}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              referrerpolicy="strict-origin-when-cross-origin"
+            ></iframe>
+          </div>
+        ) : (
+          <Media src={p.hero.src} ratio={p.hero.ratio} alt={p.hero.alt} fallback={thumb} eager />
+        )}
+      </div>
+    </section>
+
+    <!-- 본문 블록 -->
+    <div class="blocks">
+      {p.blocks.map((b) => {
+        const dark = isDark(b.bg) || (b.t === 'text' && b.ink === 'light');
+        const style = b.bg ? `background:${b.bg}` : undefined;
+        const cls = `blk blk-${b.t}${dark ? ' on-dark' : ''}`;
+
+        if (b.t === 'full')
+          return (
+            <section class={`${cls} w-${b.width ?? 'wide'}${b.fit ? ` fit fit-${b.fit.align}` : ''}`} style={style}>
+              <div class="frame" style={b.fit ? `--fw:${b.fit.w}%` : b.width === 'narrow' ? `max-width:calc(560px * ${b.img.ratio})` : undefined}>
+                <Media src={b.img.src} ratio={b.img.ratio} alt={b.img.alt} />
+              </div>
+            </section>
+          );
+
+        if (b.t === 'row')
+          return (
+            <section class={`${cls}${b.inset ? ' inset' : ''}`} style={style}>
+              <div class="row">
+                {b.imgs.map((im) => (
+                  <div class="cell" style={`flex:${im.ratio} 1 0`}>
+                    <Media src={im.src} ratio={im.ratio} alt={im.alt} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+
+        if (b.t === 'grid')
+          return (
+            <section class={`${cls}${b.inset ? ' inset' : ''}`} style={style}>
+              <div class="grid" style={`--cols:${b.cols}`}>
+                {b.imgs.map((im) => <Media src={im.src} ratio={im.ratio} alt={im.alt} />)}
+              </div>
+            </section>
+          );
+
+        if (b.t === 'youtube')
+          return (
+            <section class={`blk blk-yt${b.inset ? ' inset' : ''}`} style={b.bg ? `background:${b.bg}` : undefined}>
+              <div class="yt-row" style={`--n:${b.ids.length}`}>
+                {b.ids.map((id) => (
+                  <div class="yt" style={`aspect-ratio:${b.ratio}`}>
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1`}
+                      title={`${p.title} video`}
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerpolicy="strict-origin-when-cross-origin"
+                      allowfullscreen
+                    ></iframe>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+
+        if (b.t === 'split')
+          return (
+            <section class="blk blk-split" style={b.bg ? `background:${b.bg}` : undefined}>
+              <div class="split-col">{b.left.map((im) => <Media src={im.src} ratio={im.ratio} alt={im.alt} />)}</div>
+              <div class="split-col">{b.right.map((im) => <Media src={im.src} ratio={im.ratio} alt={im.alt} />)}</div>
+            </section>
+          );
+
+        if (b.t === 'pairs')
+          return (
+            <section class={`blk blk-pairs${b.ink === 'light' || isDark(b.bg) ? ' on-dark' : ''}`} style={b.bg ? `background:${b.bg}` : undefined}>
+              {b.items.map((it) => (
+                <>
+                  <h2>{it.h}</h2>
+                  <p>{it.body}</p>
+                </>
+              ))}
+            </section>
+          );
+
+        if (b.t === 'video')
+          return (
+            <section class={`${cls} w-${b.width ?? 'wide'}`} style={style}>
+              <div class="frame" style={b.width === 'narrow' ? `max-width:calc(640px * ${b.ratio})` : undefined}>
+                <Media src={b.src} ratio={b.ratio} poster={b.poster} video />
+              </div>
+            </section>
+          );
+
+        // text
+        return (
+          <section class={`${cls}${b.variant ? ` v-${b.variant}` : ''}${b.img || b.video ? ` has-img img-${b.imgSide ?? 'right'}` : ' no-img'}`} style={style}>
+            <div class="copy">
+              {b.heading && <h2>{b.heading}</h2>}
+              <div class="copy-body">
+                {b.body.map((x) => (isHeading(x) ? <h3>{x.h}</h3> : <p set:html={fmt(x)} />))}
+              </div>
+            </div>
+            {(b.video || b.img) && (
+              <div class="side">
+                {b.video ? <Media src={b.video.src} ratio={b.video.ratio} poster={b.video.poster} video /> : <Media src={b.img!.src} ratio={b.img!.ratio} alt={b.img!.alt} />}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  </article>
+
+  <Footer />
+</Base>
+
+<style>
+  .project { display: flex; flex-direction: column; }
+  .spacer { height: 150px; border-bottom: 3px solid var(--band); }
+
+  /* ── 정보 줄 ── */
+  .info {
+    display: grid;
+    grid-template-columns: 144px 208px minmax(0, 1fr) 140px;
+    grid-template-areas: 'lp lc ld ldt' 'vp vc vd vdt';
+    padding: 18px 58px 0;
+    row-gap: 18px;
+  }
+  .lbl { font-weight: 600; font-size: 15px; }
+  .l-proj { grid-area: lp; } .l-cat { grid-area: lc; } .l-desc { grid-area: ld; } .l-date { grid-area: ldt; text-align: right; }
+  .info h1, .info p { margin: 0; font-weight: 400; font-size: 22px; line-height: 1.25; }
+  .v-proj { grid-area: vp; } .v-cat { grid-area: vc; } .v-desc { grid-area: vd; }
+  .v-date { grid-area: vdt; text-align: right; font-size: 24px !important; }
+
+  /* ── 소개 ── */
+  .intro {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    column-gap: 56px;
+    padding: 42px 58px 50px 58px;
+    align-items: stretch;
+  }
+  .intro-text { display: flex; flex-direction: column; font-size: 12.5px; line-height: 1.36; }
+  .intro-text p { margin: 0 0 1.3em; }
+  .intro-text :global(strong) { font-weight: 700; }
+  .intro-hero { justify-self: start; width: 100%; max-width: calc(560px * var(--r)); }
+  .more {
+    align-self: flex-start;
+    margin-top: auto;
+    display: grid; place-items: center;
+    min-width: 155px; height: 30px; padding: 0 18px;
+    background: var(--band);
+    font-size: 15px; font-weight: 600; letter-spacing: 0.02em;
+    transition: opacity 0.4s var(--ease);
+  }
+  .more:hover { opacity: 0.6; }
+
+  /* ── 블록 ── */
+  .blk { position: relative; }
+  /* 소수점 높이 때문에 섹션 사이로 바탕색 실선이 비치지 않도록 1px 겹침 */
+  .blk + .blk { margin-top: -1px; }
+  .on-dark { color: #f2f1ec; }
+  .w-inset, .inset { padding: 48px 5vw; }
+  .w-narrow { padding: 60px 20px; }
+  /* 시안처럼 일부 폭만 차지하는 이미지 (좌/우/가운데 정렬) */
+  .fit { padding-block: 36px; }
+  .fit .frame { width: var(--fw); }
+  .fit-right .frame { margin-left: auto; }
+  .fit-center .frame { margin-inline: auto; }
+  .w-narrow .frame { margin-inline: auto; }
+  .row { display: flex; gap: 0; align-items: stretch; }
+  .row .cell { min-width: 0; }
+  .row :global(.media) { height: 100%; }
+  .grid { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 0; }
+  .inset .grid, .inset .row { gap: 22px; }
+
+  .blk-text { display: grid; gap: 40px; padding: 44px 58px; align-items: start; }
+  .blk-text.has-img.img-right { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+  .blk-text.has-img.img-left { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .blk-text.img-left .side { order: -1; }
+  .blk-text.no-img { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-block: 56px; align-items: start; }
+  .blk-text.no-img .copy { grid-column: 2 / 4; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+  .copy h2 { margin: 0 0 14px; font-size: 22px; font-weight: 500; line-height: 1.15; max-width: 16ch; }
+  .blk-text.no-img .copy h2 { margin: 0; }
+  .copy h3 { margin: 0 0 8px; font-size: 18px; font-weight: 500; line-height: 1.2; }
+  .copy p { margin: 0 0 1.2em; font-size: 12.5px; line-height: 1.4; max-width: 46ch; }
+
+  .blk-split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 4.2vw; padding: 60px 48px; align-items: start; }
+  .split-col { display: grid; gap: 12vw; }
+  /* 세로 쇼츠를 정사각형으로 잘라 대표 이미지 자리에 */
+  .hero-yt { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: #111; }
+  .hero-yt iframe { position: absolute; left: 0; top: 50%; width: 100%; aspect-ratio: 9 / 16; height: auto; transform: translateY(-50%); border: 0; pointer-events: none; }
+  .blk-yt.inset .yt-row[style*='--n:1'] { max-width: 360px; }
+  .yt-row { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 22px; }
+  .blk-yt.inset .yt-row { max-width: 720px; margin-inline: auto; }
+  .yt { position: relative; width: 100%; background: #111; }
+  .yt iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .blk-pairs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; padding: 26px 58px 30px; align-items: start; }
+  .blk-pairs h2 { margin: 0; font-size: 22px; font-weight: 500; line-height: 1.15; }
+  .blk-pairs p { margin: 0; font-size: 11.5px; line-height: 1.4; }
+
+  /* 제목은 화면 가운데쯤, 본문은 오른쪽 (Alessia 시안) */
+  .blk-text.no-img.v-aside { grid-template-columns: 46% 19% minmax(0, 1fr); column-gap: 0; padding: 40px 20px 80px 0; }
+  .blk-text.no-img.v-aside .copy { grid-column: 2 / 4; grid-template-columns: subgrid; gap: 0; }
+  .v-aside .copy h2 { font-size: 26px; line-height: 1.2; max-width: none; padding-right: 16px; }
+  .v-aside .copy p { max-width: none; }
+
+  /* ── 태블릿 ── */
+  @media (max-width: 1199px) {
+    .info { padding-inline: 36px; grid-template-columns: 140px 170px minmax(0, 1fr) 90px; }
+    .intro { padding-inline: 36px; grid-template-columns: 240px minmax(0, 1fr); column-gap: 36px; }
+    .blk-text { padding-inline: 36px; }
+  }
+
+  /* ── 모바일 (표준 레이아웃): 정보 줄 → 설명 → 대표 이미지 → 소개 글 → 본문 블록 ── */
+  @media (max-width: 809px) {
+    .spacer { height: 28px; border-bottom: 0; }
+
+    .info {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: 'lp ldt' 'vp vdt' 'vc vc' 'vd vd';
+      padding: 0 32px;
+      row-gap: 8px;
+    }
+    .l-cat, .l-desc { display: none; }
+    .info h1 { font-size: 26px; margin-top: 8px; }
+    .v-date { margin-top: 8px; }
+    .info .v-cat { font-size: 18px; }
+    .info .v-desc { margin-top: 44px; font-size: 22px; }
+
+    .intro { grid-template-columns: minmax(0, 1fr); padding: 22px 32px 56px; row-gap: 26px; }
+    .intro-hero { order: -1; max-width: none; }
+    .intro-text { font-size: 15px; line-height: 1.45; }
+    .more { margin-top: 6px; }
+
+    .w-inset, .inset { padding: 28px 18px; }
+    .fit { padding-block: 20px; }
+    .fit .frame { width: 100%; }
+    .inset .grid, .inset .row { gap: 10px; }
+    .blk-text, .blk-text.has-img.img-right, .blk-text.has-img.img-left, .blk-text.no-img {
+      grid-template-columns: minmax(0, 1fr); padding: 44px 32px; gap: 24px;
+    }
+    .blk-text.img-left .side { order: 0; }
+    .blk-text.no-img .copy, .blk-text.no-img.v-aside .copy { grid-column: auto; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .blk-text.no-img.v-aside { padding: 44px 32px; }
+    .copy h2 { font-size: 24px; max-width: none; }
+    .blk-pairs { grid-template-columns: minmax(0, 1fr); padding: 36px 32px; gap: 14px; }
+    .yt-row { gap: 10px; }
+    .blk-split { grid-template-columns: minmax(0, 1fr); padding: 40px 24px; gap: 40px; }
+    .split-col { gap: 40px; }
+    .blk-pairs p { font-size: 14.5px; margin-bottom: 14px; }
+    .copy p { font-size: 14.5px; max-width: none; }
+  }
+</style>

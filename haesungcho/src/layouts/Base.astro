@@ -1,0 +1,127 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+
+interface Props { title?: string; description?: string }
+const {
+  title = 'House of Haesung',
+  description = 'Permanent collection of graphic design by Haesung Cho',
+} = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-32.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" href="/favicon-dark-32.png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:image" content="/favicon-512.png" />
+    <link rel="preload" href="/fonts/PlayfairDisplay-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/SnellBT-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- 이전 페이지에서 전환 중에 넘어왔다면, 첫 페인트부터 베일을 덮은 상태로 시작 -->
+    <script is:inline>
+      try {
+        if (sessionStorage.getItem('veil') === '1') document.documentElement.classList.add('veil-enter');
+      } catch (e) {}
+      try {
+        if (localStorage.getItem('lang') === 'ko') { document.documentElement.lang = 'ko'; document.documentElement.dataset.lang = 'ko'; document.documentElement.classList.add('lang-pending'); }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <slot />
+    </main>
+    <div class="page-veil" aria-hidden="true">
+      <img src="/images/monogram.png" alt="" width="96" height="96" />
+    </div>
+
+    <script is:inline>
+      {
+        const root = document.documentElement;
+        const OUT_MS = 950;   // 베일이 덮이는 시간
+        const HOLD_MS = 250;  // 로고가 머무는 시간 (새 페이지에서)
+
+        // ── 들어올 때: 덮인 상태에서 잠깐 머문 뒤 천천히 걷힘
+        const reveal = () => {
+          try { sessionStorage.removeItem('veil'); } catch (e) {}
+          if (!root.classList.contains('veil-enter')) return;
+          setTimeout(() => {
+            root.classList.add('veil-on');          // 트랜지션을 다시 켠 상태로 유지
+            root.classList.remove('veil-enter');
+            requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('veil-on')));
+          }, HOLD_MS);
+        };
+        if (document.readyState === 'complete') reveal();
+        else window.addEventListener('load', reveal, { once: true });
+
+        // ── 나갈 때: 베일을 덮고, 다 덮이면 이동
+        document.addEventListener('click', (e) => {
+          const a = e.target.closest('a[data-veil], [data-href]');
+          if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          const url = new URL(a.getAttribute('href') || a.dataset.href, location.href);
+          if (url.origin !== location.origin) return;
+          e.preventDefault();
+          root.classList.remove('menu-open');
+          if (url.pathname === location.pathname) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+          }
+          try { sessionStorage.setItem('veil', '1'); } catch (err) {}
+          root.classList.add('veil-on');
+          setTimeout(() => { location.href = url.href; }, OUT_MS);
+        });
+
+        // 뒤로 가기(bfcache)로 돌아왔을 때 베일이 남아 있지 않도록
+        window.addEventListener('pageshow', (e) => {
+          if (e.persisted) root.classList.remove('veil-on', 'veil-enter', 'menu-open');
+        });
+
+        // ── Translate: 누를 때마다 EN ↔ KR
+        //    한글 문구는 요소에 data-ko="..." 로 넣으면 KR일 때 바뀝니다. (아직 번역 전)
+        const applyLang = (lang) => {
+          root.lang = lang; root.dataset.lang = lang;
+          document.querySelectorAll('[data-ko]').forEach((el) => {
+            if (el.dataset.en === undefined) el.dataset.en = el.innerHTML;
+            el.innerHTML = lang === 'ko' ? el.dataset.ko : el.dataset.en;
+          });
+          document.querySelectorAll('[data-toggle-lang]').forEach((b) => b.setAttribute('aria-pressed', String(lang === 'ko')));
+          root.classList.remove('lang-pending');
+        };
+        let lang = 'en';
+        try { lang = localStorage.getItem('lang') === 'ko' ? 'ko' : 'en'; } catch (e) {}
+        applyLang(lang);
+        // 번역 버튼: 페이지 이동 때와 같은 로고 베일이 덮이고, 덮인 동안 언어가 바뀐 뒤 걷힘
+        let switching = false;
+        document.querySelectorAll('[data-toggle-lang]').forEach((b) => b.addEventListener('click', () => {
+          if (switching) return;
+          lang = lang === 'ko' ? 'en' : 'ko';
+          try { localStorage.setItem('lang', lang); } catch (e) {}
+          root.classList.remove('menu-open');
+          if (matchMedia('(prefers-reduced-motion: reduce)').matches) { applyLang(lang); return; }
+          switching = true;
+          root.classList.add('veil-on');
+          setTimeout(() => {
+            applyLang(lang);
+            setTimeout(() => { root.classList.remove('veil-on'); switching = false; }, HOLD_MS);
+          }, OUT_MS);
+        }));
+
+        // ── 모바일 메뉴
+        const toggle = document.querySelector('.menu-toggle');
+        toggle?.addEventListener('click', () => {
+          const open = root.classList.toggle('menu-open');
+          toggle.setAttribute('aria-expanded', String(open));
+        });
+      }
+    </script>
+  </body>
+</html>
