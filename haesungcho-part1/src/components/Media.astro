@@ -1,0 +1,42 @@
+---
+// 이미지가 public/ 에 있으면 그대로 보여주고, 없으면 파일 이름이 적힌 자리표시를 보여줍니다.
+import fs from 'node:fs';
+import path from 'node:path';
+
+interface Props {
+  src: string;
+  ratio: number;
+  alt?: string;
+  fallback?: string;
+  video?: boolean;
+  poster?: string;
+  eager?: boolean;
+}
+const { src, ratio, alt = '', fallback, video = false, poster, eager = false } = Astro.props;
+const exists = (p?: string) => !!p && fs.existsSync(path.join(process.cwd(), 'public', p));
+const file = exists(src) ? src : exists(fallback) ? fallback : null;
+const label = src.replace('/images/projects/', '').replace('/videos/', 'videos/');
+---
+{file && video ? (
+  <video class="media" src={file} poster={poster} style={`aspect-ratio:${ratio}`} autoplay muted loop playsinline />
+) : file ? (
+  <img class="media" src={file} alt={alt} style={`aspect-ratio:${ratio}`} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+) : (
+  <div class="media placeholder" style={`aspect-ratio:${ratio}`} role="img" aria-label={alt || label}>
+    <span>{video ? '▶ ' : ''}{label}</span>
+  </div>
+)}
+
+<style>
+  .media { display: block; width: 100%; height: auto; object-fit: cover; }
+  .placeholder {
+    display: grid; place-items: center;
+    background: rgb(128 124 112 / 0.14);
+    outline: 1px dashed rgb(128 124 112 / 0.35); outline-offset: -1px;
+    color: rgb(110 106 96);
+    font-size: 12px; letter-spacing: 0.02em;
+  }
+  :global(.ink-light) .placeholder, :global(.on-dark) .placeholder {
+    background: rgb(255 255 255 / 0.07); outline-color: rgb(255 255 255 / 0.2); color: rgb(255 255 255 / 0.55);
+  }
+</style>

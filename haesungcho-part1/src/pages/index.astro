@@ -1,0 +1,102 @@
+---
+import Base from '../layouts/Base.astro';
+import Footer from '../components/Footer.astro';
+import { selectedWorks } from '../data/site';
+
+const marquee = Array.from({ length: 6 }, (_, i) => i);
+---
+<Base>
+  <section class="hero">
+    <h1 class="script">House of Haesung</h1>
+    <p data-ko="그래픽 디자이너 조혜성<br />상설 전시">Permanent collection of graphic design<br class="br-wide" /> by Haesung Cho</p>
+  </section>
+
+  <div class="band">
+    <p data-ko='<span class="accent">브랜딩 &amp; 타이포그래피</span> 기반의 대표 작업'><span class="only-wide">Selected works focusing</span><span class="only-phone">Focusing</span> on <span class="accent">branding &amp; typography</span></p>
+  </div>
+
+  <table class="works-table">
+    <thead>
+      <tr><th data-ko="프로젝트">Project</th><th class="col-cat" data-ko="카테고리">Category</th><th class="col-desc" data-ko="소개">Description</th><th class="col-date">Date</th></tr>
+    </thead>
+    <tbody>
+      {selectedWorks.map((w) => (
+        <tr data-href={`/projects/${w.slug}/`}>
+          <td><a href={`/projects/${w.slug}/`} data-veil data-ko={w.ko.title}>{w.title}</a></td>
+          <td class="col-cat" data-ko={w.ko.category}>{w.category}</td>
+          <td class="col-desc" data-ko={w.ko.description}>{w.description}</td>
+          <td class="col-date script">{w.year}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <div class="band marquee" aria-label="Selected Works">
+    <div class="marquee-track" aria-hidden="true">
+      {[0, 1].map(() => (
+        <div class="marquee-group">
+          {marquee.map((i) => (i % 2 === 0 ? <span>SELECTED WORKS</span> : <span class="script">Selected Works</span>))}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <Footer monogram />
+</Base>
+
+<style>
+  .hero {
+    display: grid; justify-items: center; align-content: center;
+    min-height: 298px; padding: 60px 20px 70px;
+    text-align: center;
+  }
+  .hero h1 { margin: 0 0 6px; font-size: clamp(44px, 6vw, 64px); line-height: 1.05; }
+  /* 부제는 언어와 상관없이 같은 높이(두 줄)로 고정 → 전환해도 제목이 움직이지 않음 */
+  .hero p { margin: 10px 0 0; font-size: 16px; line-height: 24px; height: 48px; overflow: visible; }
+  .band p { margin: 0; }
+  .only-phone { display: none; }
+
+  .works-table { width: 100%; border-collapse: collapse; }
+  .works-table th, .works-table td {
+    height: 40px; padding: 0 0 0 58px;
+    text-align: left; vertical-align: middle;
+    border-bottom: 3px solid var(--line);
+  }
+  .works-table th { font-weight: 600; }
+  .works-table .col-cat { width: 208px; padding-left: 0; }
+  .works-table .col-desc { padding-left: 0; }
+  .works-table .col-date { text-align: right; padding: 0 58px 0 0; width: 140px; font-size: 18px; }
+  .works-table th.col-date { font-family: var(--font-serif); font-size: 16px; }
+  .works-table td:first-child { width: 202px; padding-left: 58px; }
+  .works-table tbody tr { cursor: pointer; transition: background-color 0.5s var(--ease); }
+  .works-table tbody tr:hover { background: var(--band); }
+
+  /* SELECTED WORKS 흐르는 띠 */
+  .marquee { overflow: hidden; place-items: center start; }
+  .marquee-track { display: flex; width: max-content; animation: marquee 40s linear infinite; }
+  .marquee-group { display: flex; }
+  .marquee-group span { width: 208px; text-align: center; white-space: nowrap; font-size: 16px; }
+  .marquee-group span.script { font-size: 19px; }
+  @keyframes marquee { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
+
+  @media (max-width: 1199px) {
+    .works-table th, .works-table td { padding-left: 36px; }
+    .works-table td:first-child { padding-left: 36px; width: 180px; }
+    .works-table .col-cat { width: 208px; padding-left: 0; }
+    .works-table .col-desc { padding-left: 0; }
+    .works-table .col-date { padding-right: 36px; width: 90px; }
+  }
+  @media (max-width: 809px) {
+    .hero { min-height: 266px; padding: 40px 20px 60px; }
+    .hero h1 { font-size: 46px; }
+    .br-wide { display: none; }
+    .hero p { max-width: 240px; }
+    .only-wide { display: none; }
+    .only-phone { display: inline; }
+    .works-table .col-cat, .works-table .col-desc { display: none; }
+    /* 머리글 Project와 프로젝트 이름의 왼쪽 시작점을 같게 */
+    .works-table th, .works-table td, .works-table td:first-child { padding-left: 36px; }
+    .works-table .col-date { padding-right: 49px; }
+  }
+</style>
